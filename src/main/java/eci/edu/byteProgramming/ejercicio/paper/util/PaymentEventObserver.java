@@ -1,7 +1,5 @@
 package eci.edu.byteProgramming.ejercicio.paper.util;
 
-import javax.management.Notification;
-
 public class PaymentEventObserver implements PaymentObserver {
     private Inventory inventory;
     private Facturation facturation;
@@ -14,26 +12,29 @@ public class PaymentEventObserver implements PaymentObserver {
     }
     
     @Override
-    public void onPaymentSuccess(PaymentMethod payment, String customerName, String customerEmail, String productId) {
-        System.out.println("\nPayment Observer: Processing successful payment events...");
+    public void onPaymentSuccess(PaymentMethod payment, String customerName, 
+                                 String customerEmail, String productId) {
+        System.out.println("\n📢 Payment Observer: Processing successful payment...");
         
+        // Descontar inventario
         Product product = inventory.getProduct(productId);
         if (product != null) {
             inventory.discountProduct(productId, 1);
         }
         
-        String productDetails = product != null ? product.getName() : "Product";
+        // Generar factura
+        String productDetails = product != null ? product.getName() : "Producto genérico";
         facturation.generateInvoice(payment, customerName, productDetails);
         
+        // Enviar notificación
         notification.sendConfirmationEmail(customerEmail, customerName, payment);
         
-        System.out.println("All post-payment processes completed successfully!\n");
+        System.out.println("✅ All post-payment processes completed!\n");
     }
     
     @Override
     public void onPaymentFailed(PaymentMethod payment, String customerEmail) {
-        System.out.println("\nPayment Observer: Processing failed payment events...");
+        System.out.println("\n❌ Payment Observer: Payment failed");
         notification.sendFailureNotification(payment, customerEmail);
-        System.out.println("Failed payment processes completed.\n");
     }
 }

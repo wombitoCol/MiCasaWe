@@ -1,8 +1,9 @@
 package eci.edu.byteProgramming.ejercicio.paper.util;
 
 import java.util.Date;
+import java.util.UUID;
 
-public abstract class PaymentMethod implements ValidatePayment{
+public abstract class PaymentMethod implements ValidatePayment {
     protected double amount;
     protected String transactionID;
     protected String customerID;
@@ -11,7 +12,8 @@ public abstract class PaymentMethod implements ValidatePayment{
     protected PaymentStatus status;
     protected String description;
 
-    public PaymentMethod(double amount, String transactionID, String description) {
+    // Constructor corregido
+    public PaymentMethod(double amount, String customerID, String description) {
         this.amount = amount;
         this.customerID = customerID;
         this.description = description;
@@ -25,33 +27,10 @@ public abstract class PaymentMethod implements ValidatePayment{
     public abstract String getPaymentMethod();
 
     protected String generateTransactionId() {
-        
-        long timestamp = System.currentTimeMillis();
-        int random = (int)(Math.random() * 9999);
-        return String.format("TXN%d%04d", timestamp, random);
-    }
-    
-    
-    protected String generateTransactionIdWithPrefix(String paymentType) {
-        String prefix = getPaymentTypePrefix(paymentType);
-        long timestamp = System.currentTimeMillis();
-        int random = (int)(Math.random() * 9999);
-        return String.format("%s%d%04d", prefix, timestamp, random);
-    }
-    
-    private String getPaymentTypePrefix(String paymentType) {
-        switch(paymentType) {
-            case "CREDIT_CARD": return "CC";
-            case "PAYPAL": return "PP";
-            case "CRYPTO": return "CR";
-            default: return "TX";
-        }
+        return "TXN" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4);
     }
 
-    public double setAmount(double amount){
-        return this.amount = amount;
-    }
-
+    // Getters
     public double getAmount() { return amount; }
     public String getTransactionId() { return transactionID; }
     public PaymentStatus getStatus() { return status; }

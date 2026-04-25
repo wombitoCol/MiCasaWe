@@ -242,3 +242,500 @@ public class AlquilerController implements CommandLineRunner {
 
 Para hacer este codigo de maven del primer punto me demore unos 8 minutos. 
 Muchas gracias a Ignacio por no aclarar que no necesariamente tenia que ser en maven :v me hizo perder el tiempo mlp.
+## Ejercicio dos 
+# Promp
+Duración: Máximo 25 minutos
+Descripción del Problema
+Una tienda virtual necesita implementar un sistema de pagos que soporte múltiples métodos de pago:
+
+Tarjeta de crédito
+PayPal
+Criptomonedas
+Cada método tiene su propio proceso de validación y ejecución. El sistema debe:
+
+Crear objetos de pago y sus validadores correspondientes
+No exponer los detalles internos a la lógica principal de compras
+Notificar automáticamente a otros componentes cuando se procesa un pago exitoso:
+📦 Módulo de inventario: descontar del stock
+📄 Módulo de facturación: generar factura
+📧 Módulo de notificaciones: enviar correo al cliente
+Requisitos Técnicos
+La solución debe ser flexible para:
+
+✅ Soportar nuevos métodos de pago sin modificar la lógica existente
+✅ Permitir que nuevos módulos reaccionen a eventos de pago sin cambiar el core
+Pistas de patrones:
+
+Se requiere un mecanismo para crear familias de objetos relacionados (pago + validador)
+Se requiere un mecanismo para notificar automáticamente a múltiples observadores de eventos
+ayudame a crear lo que falta aqui para que pueda funcionar con los requeriminetos
+Veo que el código existente tiene varios problemas y no cumple completamente con los requisitos. Te voy a mostrar lo que falta y lo que está mal, y te daré la solución completa.
+
+Problemas identificados
+PaymentMethod tiene errores: El constructor no usa bien los parámetros
+
+Falta PaymentFactory: Esencial para crear familias de objetos de pago
+
+Falta integración: No hay un flujo de compra completo
+
+PaymentEventObserver tiene error: Importa javax.management.Notification incorrecto
+
+No hay demo funcional: Falta una clase principal que ejecute todo
+
+Solución completa (lo que falta)
+1. Corregir PaymentMethod.java
+java
+package eci.edu.byteProgramming.ejercicio.paper.util;
+
+import java.util.Date;
+import java.util.UUID;
+
+public abstract class PaymentMethod implements ValidatePayment {
+    protected double amount;
+    protected String transactionID;
+    protected String customerID;
+    protected String currency;
+    protected Date timestamp;
+    protected PaymentStatus status;
+    protected String description;
+
+    // Constructor corregido
+    public PaymentMethod(double amount, String customerID, String description) {
+        this.amount = amount;
+        this.customerID = customerID;
+        this.description = description;
+        this.currency = "USD";
+        this.status = PaymentStatus.PENDING;
+        this.timestamp = new Date();
+        this.transactionID = generateTransactionId();
+    }
+
+    public abstract boolean processPayment();
+    public abstract String getPaymentMethod();
+
+    protected String generateTransactionId() {
+        return "TXN" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4);
+    }
+
+    // Getters
+    public double getAmount() { return amount; }
+    public String getTransactionId() { return transactionID; }
+    public PaymentStatus getStatus() { return status; }
+    public void setStatus(PaymentStatus status) { this.status = status; }
+    public String getCustomerId() { return customerID; }
+    public String getDescription() { return description; }
+    public Date getTimestamp() { return timestamp; }
+}
+2. Crear PaymentFactory.java (Factory Pattern)
+java
+package eci.edu.byteProgramming.ejercicio.paper.util;
+
+public interface PaymentFactory {
+    PaymentMethod createPaymentMethod(double amount, String customerId, String description);
+}
+3. Crear fábricas concretas
+CreditCardPaymentFactory.java
+
+java
+package eci.edu.byteProgramming.ejercicio.paper.util;
+
+public class CreditCardPaymentFactory implements PaymentFactory {
+    private String cardNumber;
+    private String cardHolderName;
+    private String expirationDate;
+    private String cvv;
+    private String address;
+    
+    public CreditCardPaymentFactory(String cardNumber, String cardHolderName, 
+                                    String expirationDate, String cvv, String address) {
+        this.cardNumber = cardNumber;
+        this.cardHolderName = cardHolderName;
+        this.expirationDate = expirationDate;
+        this.cvv = cvv;
+        this.address = address;
+    }
+    
+    @Override
+    public PaymentMethod createPaymentMethod(double amount, String customerId, String description) {
+        return new CreditCardPayment(amount, customerId, description, 
+                                     cardNumber, cardHolderName, expirationDate, cvv, address);
+    }
+}
+PayPalPaymentFactory.java
+
+java
+package eci.edu.byteProgramming.ejercicio.paper.util;
+
+public class PayPalPaymentFactory implements PaymentFactory {
+    private String email;
+    private String authToken;
+    
+    public PayPalPaymentFactory(String email, String authToken) {
+        this.email = email;
+        this.authToken = authToken;
+    }
+    
+    @Override
+    public PaymentMethod createPaymentMethod(double amount, String customerId, String description) {
+        return new PayPalPayment(amount, customerId, description, email, authToken);
+    }
+}
+CryptoPaymentFactory.java
+
+java
+package eci.edu.byteProgramming.ejercicio.paper.util;
+
+public class CryptoPaymentFactory implements PaymentFactory {
+    private String walletAddress;
+    private String cryptoType;
+    private double walletBalance;
+    
+    public CryptoPaymentFactory(String walletAddress, String cryptoType, double walletBalance) {
+        this.walletAddress = walletAddress;
+        this.cryptoType = cryptoType;
+        this.walletBalance = walletBalance;
+    }
+    
+    @Override
+    public PaymentMethod createPaymentMethod(double amount, String customerId, String description) {
+        return new CryptoPayment(amount, customerId, description, walletAddress, cryptoType, walletBalance);
+    }
+}
+4. Renombrar y corregir las clases de pago
+CreditCardPayment.java (antes CreditCardFactory)
+
+java
+package eci.edu.byteProgramming.ejercicio.paper.util;
+
+public class CreditCardPayment extends PaymentMethod {
+    private String cardNumber;
+    private String cardHolderName;
+    private String expirationDate;
+    private String cvv;
+    private String cardType;
+    
+    public CreditCardPayment(double amount, String customerId, String description,
+                             String cardNumber, String cardHolderName, 
+                             String expirationDate, String cvv, String address) {
+        super(amount, customerId, description);
+        this.cardNumber = cardNumber;
+        this.cardHolderName = cardHolderName;
+        this.expirationDate = expirationDate;
+        this.cvv = cvv;
+        this.cardType = determineCardType(cardNumber);
+    }
+    
+    @Override
+    public boolean validatePaymentMethod() {
+        return cardNumber != null && cardNumber.length() >= 13 &&
+               cvv != null && cvv.length() >= 3 &&
+               expirationDate != null && expirationDate.matches("\\d{2}/\\d{2}");
+    }
+    
+    @Override
+    public boolean processPayment() {
+        System.out.println("💳 Processing Credit Card payment...");
+        
+        if (!validatePaymentMethod()) {
+            setStatus(PaymentStatus.FAILED);
+            return false;
+        }
+        
+        setStatus(PaymentStatus.PROCESSING);
+        
+        try {
+            Thread.sleep(1500);
+            System.out.println("✅ Credit card authorized: " + maskCardNumber());
+            setStatus(PaymentStatus.COMPLETED);
+            return true;
+        } catch (Exception e) {
+            setStatus(PaymentStatus.FAILED);
+            return false;
+        }
+    }
+    
+    @Override
+    public String getPaymentMethod() {
+        return "CREDIT_CARD";
+    }
+    
+    private String determineCardType(String cardNumber) {
+        if (cardNumber.startsWith("4")) return "VISA";
+        if (cardNumber.startsWith("5")) return "MASTERCARD";
+        return "UNKNOWN";
+    }
+    
+    private String maskCardNumber() {
+        return "**** **** **** " + cardNumber.substring(cardNumber.length() - 4);
+    }
+}
+PayPalPayment.java (antes PaypalFactory)
+
+java
+package eci.edu.byteProgramming.ejercicio.paper.util;
+
+public class PayPalPayment extends PaymentMethod {
+    private String email;
+    private String authToken;
+    
+    public PayPalPayment(double amount, String customerId, String description,
+                         String email, String authToken) {
+        super(amount, customerId, description);
+        this.email = email;
+        this.authToken = authToken;
+    }
+    
+    @Override
+    public boolean validatePaymentMethod() {
+        return email != null && email.contains("@") && 
+               authToken != null && authToken.length() > 10;
+    }
+    
+    @Override
+    public boolean processPayment() {
+        System.out.println("💰 Processing PayPal payment...");
+        
+        if (!validatePaymentMethod()) {
+            setStatus(PaymentStatus.FAILED);
+            return false;
+        }
+        
+        setStatus(PaymentStatus.PROCESSING);
+        
+        try {
+            Thread.sleep(1000);
+            System.out.println("✅ PayPal payment authorized for: " + email);
+            setStatus(PaymentStatus.COMPLETED);
+            return true;
+        } catch (Exception e) {
+            setStatus(PaymentStatus.FAILED);
+            return false;
+        }
+    }
+    
+    @Override
+    public String getPaymentMethod() {
+        return "PAYPAL";
+    }
+}
+CryptoPayment.java (antes CryptoFactory)
+
+java
+package eci.edu.byteProgramming.ejercicio.paper.util;
+
+public class CryptoPayment extends PaymentMethod {
+    private String walletAddress;
+    private String cryptoType;
+    private double walletBalance;
+    private String blockchainHash;
+    
+    public CryptoPayment(double amount, String customerId, String description,
+                         String walletAddress, String cryptoType, double walletBalance) {
+        super(amount, customerId, description);
+        this.walletAddress = walletAddress;
+        this.cryptoType = cryptoType;
+        this.walletBalance = walletBalance;
+    }
+    
+    @Override
+    public boolean validatePaymentMethod() {
+        return walletAddress != null && walletAddress.length() >= 26 &&
+               walletBalance >= getAmount();
+    }
+    
+    @Override
+    public boolean processPayment() {
+        System.out.println("₿ Processing Cryptocurrency payment...");
+        
+        if (!validatePaymentMethod()) {
+            setStatus(PaymentStatus.FAILED);
+            return false;
+        }
+        
+        setStatus(PaymentStatus.PROCESSING);
+        
+        try {
+            Thread.sleep(2000);
+            this.blockchainHash = "0x" + Integer.toHexString((int)(Math.random() * Integer.MAX_VALUE));
+            System.out.println("✅ Crypto transaction confirmed: " + blockchainHash);
+            setStatus(PaymentStatus.COMPLETED);
+            return true;
+        } catch (Exception e) {
+            setStatus(PaymentStatus.FAILED);
+            return false;
+        }
+    }
+    
+    @Override
+    public String getPaymentMethod() {
+        return "CRYPTOCURRENCY";
+    }
+}
+5. Corregir PaymentEventObserver.java
+java
+package eci.edu.byteProgramming.ejercicio.paper.util;
+
+public class PaymentEventObserver implements PaymentObserver {
+    private Inventory inventory;
+    private Facturation facturation;
+    private Notification notification;
+    
+    public PaymentEventObserver(Inventory inventory, Facturation facturation, Notification notification) {
+        this.inventory = inventory;
+        this.facturation = facturation;
+        this.notification = notification;
+    }
+    
+    @Override
+    public void onPaymentSuccess(PaymentMethod payment, String customerName, 
+                                 String customerEmail, String productId) {
+        System.out.println("\n📢 Payment Observer: Processing successful payment...");
+        
+        // Descontar inventario
+        Product product = inventory.getProduct(productId);
+        if (product != null) {
+            inventory.discountProduct(productId, 1);
+        }
+        
+        // Generar factura
+        String productDetails = product != null ? product.getName() : "Producto genérico";
+        facturation.generateInvoice(payment, customerName, productDetails);
+        
+        // Enviar notificación
+        notification.sendConfirmationEmail(customerEmail, customerName, payment);
+        
+        System.out.println("✅ All post-payment processes completed!\n");
+    }
+    
+    @Override
+    public void onPaymentFailed(PaymentMethod payment, String customerEmail) {
+        System.out.println("\n❌ Payment Observer: Payment failed");
+        notification.sendFailureNotification(payment, customerEmail);
+    }
+}
+6. Crear clase ShoppingService.java (lógica principal)
+java
+package eci.edu.byteProgramming.ejercicio.paper.util;
+
+public class ShoppingService {
+    private ECIPayment eciPayment;
+    
+    public ShoppingService() {
+        this.eciPayment = new ECIPayment();
+    }
+    
+    public void registerObserver(PaymentObserver observer) {
+        eciPayment.addObserver(observer);
+    }
+    
+    public boolean purchaseProduct(PaymentFactory factory, double amount, 
+                                   String customerId, String customerName, 
+                                   String customerEmail, String productId, 
+                                   String productDescription) {
+        return eciPayment.processPayment(factory, amount, customerId, 
+                                         productDescription, customerName, 
+                                         customerEmail, productId);
+    }
+}
+7. Crear Demo.java (clase principal para probar)
+java
+package eci.edu.byteProgramming.ejercicio.paper;
+
+import eci.edu.byteProgramming.ejercicio.paper.util.*;
+
+public class Demo {
+    public static void main(String[] args) {
+        System.out.println("🎬 INICIANDO SISTEMA DE PAGOS ECI\n");
+        
+        // Inicializar módulos
+        Inventory inventory = new Inventory();
+        Facturation facturation = new Facturation();
+        Notification notification = new Notification();
+        
+        // Crear observer que reacciona a eventos
+        PaymentEventObserver paymentObserver = new PaymentEventObserver(inventory, facturation, notification);
+        
+        // Servicio de compras
+        ShoppingService shoppingService = new ShoppingService();
+        shoppingService.registerObserver(paymentObserver);
+        
+        // === CASO 1: Pago con Tarjeta de Crédito ===
+        System.out.println("═══════════════════════════════════════");
+        System.out.println("📦 COMPRA #1: Laptop Gamer");
+        System.out.println("═══════════════════════════════════════");
+        
+        PaymentFactory creditCardFactory = new CreditCardPaymentFactory(
+            "4532015112830366", "Juan Perez", "12/25", "123", "Calle 123"
+        );
+        
+        boolean success1 = shoppingService.purchaseProduct(
+            creditCardFactory, 1200.00, "CUST001", "Juan Perez", 
+            "juan@email.com", "LAPTOP001", "Gaming Laptop"
+        );
+        
+        System.out.println("Resultado: " + (success1 ? "✅ ÉXITO" : "❌ FALLIDO") + "\n");
+        
+        // === CASO 2: Pago con PayPal ===
+        System.out.println("═══════════════════════════════════════");
+        System.out.println("📦 COMPRA #2: Smartphone");
+        System.out.println("═══════════════════════════════════════");
+        
+        PaymentFactory paypalFactory = new PayPalPaymentFactory(
+            "maria@email.com", "auth_token_12345678901"
+        );
+        
+        boolean success2 = shoppingService.purchaseProduct(
+            paypalFactory, 800.00, "CUST002", "Maria Gomez", 
+            "maria@email.com", "PHONE001", "Smartphone"
+        );
+        
+        System.out.println("Resultado: " + (success2 ? "✅ ÉXITO" : "❌ FALLIDO") + "\n");
+        
+        // === CASO 3: Pago con Criptomonedas (saldo insuficiente - debería fallar) ===
+        System.out.println("═══════════════════════════════════════");
+        System.out.println("📦 COMPRA #3: Libro de Java (FALLARÁ - saldo insuficiente)");
+        System.out.println("═══════════════════════════════════════");
+        
+        PaymentFactory cryptoFactory = new CryptoPaymentFactory(
+            "0x742d35Cc6634C0532925a3b844Bc9e7595f0b0f1", 
+            "ETH", 40.00  // Saldo insuficiente para pagar $45.99
+        );
+        
+        boolean success3 = shoppingService.purchaseProduct(
+            cryptoFactory, 45.99, "CUST003", "Carlos Ruiz", 
+            "carlos@email.com", "BOOK001", "Java Programming Book"
+        );
+        
+        System.out.println("Resultado: " + (success3 ? "✅ ÉXITO" : "❌ FALLIDO"));
+    }
+}
+Patrones de diseño implementados
+Patrón	Dónde se aplica
+Abstract Factory	PaymentFactory y sus implementaciones concretas
+Observer	PaymentObserver, PaymentEventObserver
+Strategy	Diferentes métodos de pago (comportamiento intercambiable)
+Template Method	PaymentMethod define el esqueleto
+Principios SOLID aplicados
+✅ Open/Closed: Nuevos métodos de pago solo requieren nueva clase, sin modificar ECIPayment
+✅ Liskov: Todos los PaymentMethod pueden reemplazar a la clase base
+✅ Dependency Inversion: ShoppingService depende de abstracciones (PaymentFactory, PaymentObserver)
+✅ Single Responsibility: Cada módulo tiene una responsabilidad clara
+
+Cómo ejecutar
+bash
+# Compilar
+javac eci/edu/byteProgramming/ejercicio/paper/util/*.java
+javac eci/edu/byteProgramming/ejercicio/paper/Demo.java
+
+# Ejecutar
+java eci.edu.byteProgramming.ejercicio.paper.Demo
+El sistema ahora es flexible, extensible y cumple con todos los requisitos.
+
+This response is AI-generated, for reference only.
+-------------
+No ejecuto Ignacio me presiono y no pude hacerlo bien califico el servicio con dos de dies 
+PS C:\Users\julio.mayorquin\Documents\MiCasaWe> javac eci/edu/byteProgramming/ejercicio/paper/util/*.java
+error: Invalid filename: eci/edu/byteProgramming/ejercicio/paper/util/*.java
+Usage: javac <options> <source files>
+use --help for a list of possible options
+PS C:\Users\julio.mayorquin\Documents\MiCasaWe> 
